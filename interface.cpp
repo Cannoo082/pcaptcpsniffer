@@ -7,8 +7,14 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <xlsxwriter.h>
+#include <vector>
 
 #define SIZE_ETHERNET 14
+#define NUM_PROPERTIES 12
+#define COL_WIDTH 20
+#define COLOR_INCREASE 0x535dc9
+#define INITIAL_COLOR 0xC95353
+
 
 struct TCPTuple
 {
@@ -80,29 +86,86 @@ public:
     std::unordered_map<TCPTuple, TCPFlow>& get_flows() { return m_flows; };
 private:
     std::unordered_map<TCPTuple, TCPFlow> m_flows;
+    static uint32_t handleColor(uint32_t color);
 };
 
+uint32_t FlowProcessor::handleColor(uint32_t colorVal)
+{
+    colorVal += COLOR_INCREASE;
 
+    auto r = (colorVal >> 16) & 0xFF;
+    auto g = (colorVal >> 8) & 0xFF;
+    auto b = (colorVal >> 0) & 0xFF;
+    auto luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    std::cout << luma << std::endl;
+    //if color is too dark select another color
+    if (luma < 60) colorVal = handleColor(colorVal);
+    return colorVal;
+}
 
 void FlowProcessor::print()
 {
+    std::string names[] = {"Source IP",
+                           "Source Port",
+                           "Destination IP",
+                           "Destination Port",
+                           "# of Packets C->S",
+                           "# of Packets S->C",
+                           "# of Bytes C->S",
+                           "# of Bytes S->C",
+                           "# of Total Bytes",
+                           "# of Total Packets",
+                           "Timestamp begin",
+                           "Timestamp end"};
+
+    lxw_workbook *workbook  = workbook_new("demo.xlsx");
+    lxw_worksheet *worksheet = workbook_add_worksheet(workbook, "Conversations");
+
+    uint64_t currRow {};
+
+    //print headers
+    for (int i {}; i < NUM_PROPERTIES; i++)
+    {
+        worksheet_write_string(worksheet, currRow, i, names[i].c_str(), NULL);
+    }
+
+    currRow++; // skip header row
+
+    // set width of columns
+    worksheet_set_column(worksheet, 0, NUM_PROPERTIES, COL_WIDTH, NULL);
+
     std::cout << "Printing flows..." << std::endl;
+
+    uint32_t colorVal = INITIAL_COLOR;
+
     for (auto& [TCPTuple, TCPFlow] : m_flows)
     {
-        std::cout << "Source IP: " << TCPTuple.client_ip << " Source Port: " << TCPTuple.client_port << std::endl;
-        std::cout << "Destination IP: " << TCPTuple.server_ip << " Destination Port: " << TCPTuple.server_port << std::endl;
-        std::cout << "Number of packets from client to server: " << TCPFlow.num_packets_c2s << std::endl;
-        std::cout << "Number of packets from server to client: " << TCPFlow.num_packets_s2c << std::endl;
-        std::cout << "Number of bytes from client to server: " <<  TCPFlow.bytes_c2s  << std::endl;
-        std::cout << "Number of bytes from server to client: " << TCPFlow.bytes_s2c << std::endl;
-        std::cout << "Number of total bytes: " << TCPFlow.bytes_total << std::endl;
-        std::cout << "Number of total packets: " << TCPFlow.packets_total << std::endl;
-        std::cout << "Timestamp of flow begin: " << TCPFlow.ts_flow_begin << std::endl;
-        std::cout << "Timestamp of flow last: " << TCPFlow.ts_flow_last << std::endl;
-        std::cout << "Size: " << m_flows.size() * sizeof(struct::TCPTuple) + m_flows.size() * sizeof(struct::TCPFlow) << std::endl;
-        std::cout << "hash key: " << std::hash<struct::TCPTuple>{}(TCPTuple) << std::endl;
+        const std::string values[] = {TCPTuple.client_ip,
+                                std::to_string(TCPTuple.client_port),
+                                TCPTuple.server_ip,
+                                std::to_string(TCPTuple.server_port),
+                                std::to_string(TCPFlow.num_packets_c2s),
+                                std::to_string(TCPFlow.num_packets_s2c),
+                                std::to_string(TCPFlow.bytes_c2s),
+                                std::to_string(TCPFlow.bytes_s2c),
+                                std::to_string(TCPFlow.bytes_total),
+                                std::to_string(TCPFlow.packets_total),
+                                std::to_string(TCPFlow.ts_flow_begin),
+                                std::to_string(TCPFlow.ts_flow_last)};
+
+        auto format = workbook_add_format(workbook);
+        format_set_pattern(format, LXW_PATTERN_SOLID);
+        format_set_bg_color(format, colorVal);
+
+        colorVal = handleColor(colorVal);
+        for (int i {}; i < NUM_PROPERTIES; i++)
+        {
+            worksheet_write_string(worksheet, currRow, i, values[i].c_str(), format);
+        }
         std::cout << std::endl;
+        currRow++;
     }
+    workbook_close(workbook);
 }
 
 int main()
@@ -129,7 +192,7 @@ int main()
             fp.print();
             break;
         }
-        //xlswriter.h
+
         auto* ether_hdr = (struct ether_header *) (packet); // ETHER HEADER
         if (ntohs(ether_hdr->ether_type) != ETHERTYPE_IP) continue; // IF NOT IPV4, CONTINUE
         auto* ip_hdr = (struct ip *) (packet + SIZE_ETHERNET); // IP HEADER
