@@ -97,7 +97,6 @@ uint32_t FlowProcessor::handleColor(uint32_t colorVal)
     auto g = (colorVal >> 8) & 0xFF;
     auto b = (colorVal >> 0) & 0xFF;
     auto luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    std::cout << luma << std::endl;
     //if color is too dark select another color
     if (luma < 60) colorVal = handleColor(colorVal);
     return colorVal;
@@ -124,15 +123,16 @@ void FlowProcessor::print()
     uint64_t currRow {};
 
     //print headers
+    if (NUM_PROPERTIES > end(names)-begin(names)) throw std::runtime_error("Number of properties is greater than number of names"); // Error checking if NUM_PROPERTIES is changed
     for (int i {}; i < NUM_PROPERTIES; i++)
     {
-        worksheet_write_string(worksheet, currRow, i, names[i].c_str(), NULL);
+        worksheet_write_string(worksheet, currRow, i, names[i].c_str(), nullptr);
     }
 
     currRow++; // skip header row
 
     // set width of columns
-    worksheet_set_column(worksheet, 0, NUM_PROPERTIES, COL_WIDTH, NULL);
+    worksheet_set_column(worksheet, 0, NUM_PROPERTIES, COL_WIDTH, nullptr);
 
     std::cout << "Printing flows..." << std::endl;
 
@@ -162,7 +162,6 @@ void FlowProcessor::print()
         {
             worksheet_write_string(worksheet, currRow, i, values[i].c_str(), format);
         }
-        std::cout << std::endl;
         currRow++;
     }
     workbook_close(workbook);
@@ -171,7 +170,7 @@ void FlowProcessor::print()
 int main()
 {
     char errbuf[PCAP_ERRBUF_SIZE];
-    const u_char *packet = nullptr;
+    const u_char *packet;
     struct pcap_pkthdr header{};
     FlowProcessor fp;
 
