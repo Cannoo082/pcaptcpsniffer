@@ -14,6 +14,8 @@
 #define COL_WIDTH 20
 #define COLOR_INCREASE 0x535dc9
 #define INITIAL_COLOR 0xC95353
+#define EXCEL_NAME "demo.xlsx"
+#define WORKSHEET_NAME "Conversations"
 
 
 struct TCPTuple
@@ -117,13 +119,13 @@ void FlowProcessor::print()
                            "Timestamp begin",
                            "Timestamp end"};
 
-    lxw_workbook *workbook  = workbook_new("demo.xlsx");
-    lxw_worksheet *worksheet = workbook_add_worksheet(workbook, "Conversations");
+    lxw_workbook *workbook  = workbook_new(EXCEL_NAME);
+    lxw_worksheet *worksheet = workbook_add_worksheet(workbook, WORKSHEET_NAME);
 
     uint64_t currRow {};
 
     //print headers
-    if (NUM_PROPERTIES > end(names)-begin(names)) throw std::runtime_error("Number of properties is greater than number of names"); // Error checking if NUM_PROPERTIES is changed
+    if (NUM_PROPERTIES > end(names)-begin(names)) [[unlikely]] throw std::runtime_error("Number of properties is greater than number of names"); // Error checking if NUM_PROPERTIES is changed
     for (int i {}; i < NUM_PROPERTIES; i++)
     {
         worksheet_write_string(worksheet, currRow, i, names[i].c_str(), nullptr);
@@ -175,7 +177,7 @@ int main()
     FlowProcessor fp;
 
     // Open offline file for reading
-    pcap_t* pcap_file = pcap_open_offline("../try.pcap", errbuf);
+    pcap_t *pcap_file = pcap_open_offline("../try.pcap", errbuf);
     if (pcap_file == nullptr) {
         std::cerr << "Error opening pcap file: " << errbuf << std::endl;
         return EXIT_FAILURE;
@@ -192,12 +194,12 @@ int main()
             break;
         }
 
-        auto* ether_hdr = (struct ether_header *) (packet); // ETHER HEADER
+        auto *ether_hdr = (struct ether_header *) (packet); // ETHER HEADER
         if (ntohs(ether_hdr->ether_type) != ETHERTYPE_IP) continue; // IF NOT IPV4, CONTINUE
-        auto* ip_hdr = (struct ip *) (packet + SIZE_ETHERNET); // IP HEADER
+        auto *ip_hdr = (struct ip *) (packet + SIZE_ETHERNET); // IP HEADER
         if(ip_hdr->ip_p != IPPROTO_TCP) continue; // IF NOT TCP, CONTINUE
         auto size_ip = ip_hdr->ip_hl * 4;
-        auto* tcp_hdr = (struct tcphdr *) (packet + SIZE_ETHERNET + size_ip); // TCP HEADER
+        auto *tcp_hdr = (struct tcphdr *) (packet + SIZE_ETHERNET + size_ip); // TCP HEADER
 
         TCPTuple tuple = TCPTuple{ip_hdr->ip_src, tcp_hdr->th_sport, ip_hdr->ip_dst, tcp_hdr->th_dport};
 
