@@ -1,3 +1,0 @@
-/home/can/Desktop/git/pcaptcpsniffer/cmake-build-debug/CMakeFiles/pcaptcpsniffer.dir
-/home/can/Desktop/git/pcaptcpsniffer/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/can/Desktop/git/pcaptcpsniffer/cmake-build-debug/CMakeFiles/rebuild_cache.dir

@@ -22,16 +22,16 @@ struct TCPTuple
 {
     TCPTuple(in_addr client_ip, uint16_t client_port, in_addr server_ip, uint16_t server_port)
     {
-        this->client_ip = inet_ntoa(client_ip);
+        this->client_ip = client_ip;
         this->client_port = ntohs(client_port);
-        this->server_ip = inet_ntoa(server_ip);
+        this->server_ip = server_ip;
         this->server_port = ntohs(server_port);
     }
 
-    std::string client_ip;
+    in_addr client_ip;
     uint16_t client_port;
-    std::string server_ip;
-    uint16_t server_port;
+    in_addr server_ip;
+    uint32_t server_port;
     bool operator==(TCPTuple const& other) const;
 };
 
@@ -43,15 +43,15 @@ namespace std
         size_t operator()(const TCPTuple& k) const
         {
             // Custom Hash Function to return same hash even if the client and server are swapped
-            return (hash<string>()(k.client_ip) ^ hash<string>()(k.server_ip)) ^ (hash<uint16_t>()(k.client_port) ^ hash<uint16_t>()(k.server_port));
+            return (hash<uint32_t>()(k.client_ip.s_addr) ^ hash<uint32_t>()(k.server_ip.s_addr)) ^ (hash<uint16_t>()(k.client_port) ^ hash<uint16_t>()(k.server_port));
         }
     };
 }
 
 bool TCPTuple::operator==(const TCPTuple &other) const
 {
-    if(client_ip == other.client_ip && client_port == other.client_port && server_ip == other.server_ip && server_port == other.server_port ||
-        client_ip == other.server_ip && client_port == other.server_port && server_ip == other.client_ip && other.client_port) return true;
+    if(client_ip.s_addr == other.client_ip.s_addr && client_port == other.client_port && server_ip.s_addr == other.server_ip.s_addr && server_port == other.server_port ||
+        client_ip.s_addr == other.server_ip.s_addr && client_port == other.server_port && server_ip.s_addr == other.client_ip.s_addr && other.client_port) return true;
     else return false;
 }
 
@@ -142,9 +142,10 @@ void FlowProcessor::print()
 
     for (auto& [TCPTuple, TCPFlow] : m_flows)
     {
-        const std::string values[] = {TCPTuple.client_ip,
+        const std::string values[] = {
+                                inet_ntoa(TCPTuple.client_ip),
                                 std::to_string(TCPTuple.client_port),
-                                TCPTuple.server_ip,
+                                inet_ntoa(TCPTuple.server_ip),
                                 std::to_string(TCPTuple.server_port),
                                 std::to_string(TCPFlow.num_packets_c2s),
                                 std::to_string(TCPFlow.num_packets_s2c),
@@ -213,7 +214,7 @@ int main()
         else
         {
             //request already in map
-            if(tuple.client_ip == map_iterator->first.client_ip)
+            if(tuple.client_ip.s_addr == map_iterator->first.client_ip.s_addr)
             {
                 map[tuple].num_packets_c2s++;
                 map[tuple].bytes_c2s += ntohs(ip_hdr->ip_len) + SIZE_ETHERNET;
